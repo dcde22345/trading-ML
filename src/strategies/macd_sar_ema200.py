@@ -7,8 +7,8 @@ from ..backtesting import BackTesting
 from ..position import Position
 
 class test_MACD_SAR_EMA200(BackTesting):
-    def __init__(self, init_balance: float, quantity: float):
-        super().__init__(init_balance, quantity)
+    def __init__(self, init_balance: float, quantity: int, parymid: int):
+        super().__init__(init_balance, quantity, parymid)
 
     def _simulate(self, historical_data):
         """執行回測"""
@@ -37,32 +37,31 @@ class test_MACD_SAR_EMA200(BackTesting):
 
 
             if self.balance > 0:
-                self._trading_strategy(long_condition=long_condition, short_condition=short_condition, close_price=close_price, date=date, index=i)
+                self._trading_strategy(long_condition=long_condition, short_condition=short_condition, close_price=close_price, date=date, sar=sar, risk_reward=risk_reward)
 
 
     # 先以parymid = 1的方法實作
-    def _trading_strategy(self, long_condition:bool, short_condition: bool, date: datetime, close_price:float, index: int):
+    def _trading_strategy(self, long_condition:bool, short_condition: bool, date: datetime, close_price:float, sar: float,risk_reward: float):
         """基於MACD + SAR + EMA200的交易策略"""
 
         # 檢查是否有空頭倉位，如果有就平倉
         if long_condition:
             # 是否有position
-            # position.condition是否為short
-            if self.holding_positions[-1].condition is False:
-                # 如果是的話作平倉
-                # 計算pnl
-                position_pnl = self.holding_positions[-1].test_close_position(close_price, date)
-                self.balance += position_pnl
-                self.pnl += position_pnl
+            for holding_position in self.holding_positions:
+                # position.condition是否為short
+                if holding_position.condition == True:
+                    # 如果是`的話作平倉
+                    position_pnl = holding_position.test_close_position(close_price, date)
+                    # 計算pnl
+                    self.balance += position_pnl
 
                 # 紀錄trading_log
-                self.trading_log.append({"id": self.position_id, "type": "close_short", "price": close_price, "pnl": position_pnl})
+                self.trading_log.append({"id": holding_position.position_id, "type": "close_short", "price": close_price, "pnl": position_pnl})
 
-            # 進行開倉
-                # position_id加一
+            # 檢查目前的positions是否小於parymid
+            if len(self.holding_positions) < self.parymid:
+                # 進行開倉
                 self.position_id += 1
-                # position_size加1
-                self.position_size += 1
 
                 # 建立新的position
                 new_position = Position(position_id=self.position_id, condition=True) # condition: True(long) or False(short)
@@ -70,32 +69,14 @@ class test_MACD_SAR_EMA200(BackTesting):
 
                 # 計算balance, position_size
                 self.balance -= (close_price * self.quantity)
-                self.position_size += 1
 
                 # 記錄到trading_log
-                self.trading_log.append({"id": self.position_id,"type": "long", "price": close_price, "profit": 0})
-
+                self.trading_log.append({"id": new_position.position_id,"type": "open_long", "price": close_price, "pnl": None})
                 # 將目前的position加入positions
                 self.holding_positions.append(new_position)
 
-        # 如果是空頭狀態的話
-        if short_condition:
-            # 檢查是否有position
-            # 檢查position是否為True
-            if self.holding_positions and self.holding_positions[-1].type is True:  # 檢查是否有多頭倉位
-                # 閉倉並計算profit
-                position_pnl = self.holding_positions[-1].test_close_position(close_price, date).pnl
-                self.balance += position_pnl
-                self.pnl += position_pnl
+            # 出場邏輯
+            stop_loss = sar
+            stop_profit = close_price + ((close_price - sar) * risk_reward)
 
-                # 紀錄到trading_log
-                self.trading_log.append({"type": "close_long", "price": close_price, "pnl": position_pnl})
-            
-            # 如果是空倉
-            if not self.holding_positions or self.holding_positions[-1].type is True:
-                position_size = self.balance / close_price
-                new_position = Position(index, index, False, close_price, position_size, date)
-                new_position.open_position(True, close_price, date)
-                self.balance -= position_size * close_price
-                self.holding_positions.append(new_position)
-                self.trading_log.append({"type": "short", "price": close_price, "profit": 0})
+            # 要獲取時間顆粒度更小的price來做資訊

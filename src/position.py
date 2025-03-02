@@ -25,7 +25,7 @@ class Position:
         self.exit_price = price
         self.exit_date = date
 
-        if self.type:  # Long position
+        if self.condition:  # Long position
             self.pnl = (self.exit_price - self.entry_price) * self.quantity
         else:  # Short position
             self.pnl = (self.entry_price - self.exit_price) * self.quantity

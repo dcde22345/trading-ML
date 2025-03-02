@@ -15,10 +15,14 @@ from .position import Position
 model_path = "../models"
 
 class BackTesting:
-    def __init__(self, init_balance: float):
+    def __init__(self, init_balance: float, quantity: int, parymid: int):
         self.balance: float = init_balance
+        self.quantity: int = quantity # 一次購買的數量
+        self.parymid: int = parymid # 同時間能持有的最大倉位量
+
         self.trading_log: list[dict] = []
-        self.positions: list[Position] = []
+        self.position_id: int = 1
+        self.holding_positions: list[Position] = []
 
     def run(self, symbol, timeframe, start_date, end_date):
         data = self._get_historical_data(symbol, timeframe, start_date, end_date)
