@@ -41,12 +41,11 @@ class Position:
             # 關閉測試倉位
             self.exit_price = price
             self.exit_date = date
-
+            
             if self.condition:  # Long position
                 self.pnl = (self.exit_price - self.entry_price) * self.quantity
             else:  # Short position
                 self.pnl = (self.entry_price - self.exit_price) * self.quantity
-
             return {"type": f"exit {'long' if self.condition else 'short'}", "position_id": self.position_id, "close_price": self.exit_price, "close_date": self.exit_date, "pnl": self.pnl}
         else:
             # 關閉真實倉位
